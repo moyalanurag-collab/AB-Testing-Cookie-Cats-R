@@ -1,0 +1,315 @@
+<!doctype html><html><head><meta charset='utf-8'><title>Power, sample size and decision</title><style>body{font:15px/1.55 system-ui,Segoe UI,Roboto,sans-serif;max-width:980px;margin:32px auto;padding:0 20px;color:#1d2733}
+h1,h2,h3{color:#2F5D8A;margin-top:1.6em}h1{border-bottom:2px solid #e3e8ee;padding-bottom:.2em}
+table{border-collapse:collapse;margin:12px 0;font-size:13.5px}th,td{border:1px solid #d9dee5;padding:5px 9px;text-align:left}th{background:#f1f4f8}
+pre{background:#f6f8fa;padding:10px 12px;border-radius:6px;overflow-x:auto;font-size:12.5px}code{font-family:Consolas,monospace}
+blockquote{border-left:4px solid #E08A2E;margin:12px 0;padding:4px 14px;background:#fdf6ee}img{max-width:100%}</style></head><body><h1>Sample Size, Power &amp; the Ship / Don't-Ship Decision</h1>
+<p><em>Author: Anurag Moyal</em></p>
+<h1>1. Was the experiment big enough? (power &amp; minimum detectable effect)</h1>
+<p><strong>Statistical power</strong> is the chance an experiment detects a real effect of a given size. Planning it <em>before</em> an experiment prevents the two classic mistakes:
+running too small a test (miss real effects) or stopping when the result &quot;looks&quot; significant (false alarms).</p>
+<ul>
+<li>Baseline day-7 retention (control): <strong>19.02%</strong> · Players per group: <strong>45,094</strong> · α = 5 % two-sided · target power = 80 %.</li>
+</ul>
+<pre><code class="language-r">mde_abs &lt;- function(n, p0, power = .8, alpha = .05) {                       # smallest improvement detectable with this n
+  h &lt;- pwr.2p.test(n = n, power = power, sig.level = alpha)$h
+  sin((2 * asin(sqrt(p0)) + h) / 2)^2 - p0
+}
+mde7 &lt;- mde_abs(n_per, p0); mde1 &lt;- mde_abs(n_per, res1$control)
+tibble(metric = c(&quot;Day-7 retention&quot;, &quot;Day-1 retention&quot;), baseline = percent(c(p0, res1$control), .1),
+       `players per group` = format(n_per, big.mark = &quot;,&quot;),
+       `minimum detectable effect, 80% power (pp)` = round(c(mde7, mde1) * 100, 2)) |&gt; kable()
+</code></pre>
+<table>
+<thead>
+<tr>
+<th align="left">metric</th>
+<th align="left">baseline</th>
+<th align="left">players per group</th>
+<th align="right">minimum detectable effect, 80% power (pp)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="left">Day-7 retention</td>
+<td align="left">19.0%</td>
+<td align="left">45,094</td>
+<td align="right">0.74</td>
+</tr>
+<tr>
+<td align="left">Day-1 retention</td>
+<td align="left">44.8%</td>
+<td align="left">45,094</td>
+<td align="right">0.93</td>
+</tr>
+</tbody>
+</table>
+<p>With ~45,094 players per arm the test could reliably detect a change of about <strong>±0.74 pp</strong> in day-7 retention. The observed effect was
+<strong>-0.82 pp</strong> — larger than the minimum detectable effect, which is why the test
+could and did flag it.</p>
+<h2>Sample size needed to detect different effects</h2>
+<pre><code class="language-r">effs &lt;- c(.005, .0075, .01, .015, .02)
+need &lt;- expand.grid(mde = effs, power = c(.8, .9)) |&gt; rowwise() |&gt;
+  mutate(n_per_group = ceiling(pwr.2p.test(h = ES.h(p0 + mde, p0), power = power, sig.level = .05)$n)) |&gt; ungroup()
+need |&gt; mutate(effect = paste0(&quot;±&quot;, mde * 100, &quot; pp&quot;), `power` = percent(power), `players per group` = format(n_per_group, big.mark = &quot;,&quot;),
+               `total players` = format(2 * n_per_group, big.mark = &quot;,&quot;)) |&gt; select(effect, power, `players per group`, `total players`) |&gt; kable()
+</code></pre>
+<table>
+<thead>
+<tr>
+<th align="left">effect</th>
+<th align="left">power</th>
+<th align="left">players per group</th>
+<th align="left">total players</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="left">±0.5 pp</td>
+<td align="left">80%</td>
+<td align="left">97,679</td>
+<td align="left">195,358</td>
+</tr>
+<tr>
+<td align="left">±0.75 pp</td>
+<td align="left">80%</td>
+<td align="left">43,625</td>
+<td align="left">87,250</td>
+</tr>
+<tr>
+<td align="left">±1 pp</td>
+<td align="left">80%</td>
+<td align="left">24,658</td>
+<td align="left">49,316</td>
+</tr>
+<tr>
+<td align="left">±1.5 pp</td>
+<td align="left">80%</td>
+<td align="left">11,063</td>
+<td align="left">22,126</td>
+</tr>
+<tr>
+<td align="left">±2 pp</td>
+<td align="left">80%</td>
+<td align="left">6,281</td>
+<td align="left">12,562</td>
+</tr>
+<tr>
+<td align="left">±0.5 pp</td>
+<td align="left">90%</td>
+<td align="left">130,765</td>
+<td align="left">261,530</td>
+</tr>
+<tr>
+<td align="left">±0.75 pp</td>
+<td align="left">90%</td>
+<td align="left">58,402</td>
+<td align="left">116,804</td>
+</tr>
+<tr>
+<td align="left">±1 pp</td>
+<td align="left">90%</td>
+<td align="left">33,009</td>
+<td align="left">66,018</td>
+</tr>
+<tr>
+<td align="left">±1.5 pp</td>
+<td align="left">90%</td>
+<td align="left">14,810</td>
+<td align="left">29,620</td>
+</tr>
+<tr>
+<td align="left">±2 pp</td>
+<td align="left">90%</td>
+<td align="left">8,408</td>
+<td align="left">16,816</td>
+</tr>
+</tbody>
+</table>
+<pre><code class="language-r">grid &lt;- expand.grid(eff = seq(.001, .02, .0005), n = c(10000, 25000, n_per, 90000)) |&gt; rowwise() |&gt;
+  mutate(power = pwr.2p.test(h = ES.h(p0 + eff, p0), n = n, sig.level = .05)$power) |&gt; ungroup() |&gt;
+  mutate(n_lab = factor(format(n, big.mark = &quot;,&quot;), levels = format(sort(unique(n)), big.mark = &quot;,&quot;)))
+ggplot(grid, aes(eff * 100, power, color = n_lab)) + geom_hline(yintercept = .8, linetype = 2, color = &quot;grey50&quot;) +
+  geom_vline(xintercept = abs(res7$diff_pp), linetype = 3, color = &quot;#C0392B&quot;) + geom_line(linewidth = 1) +
+  annotate(&quot;text&quot;, x = abs(res7$diff_pp) + .03, y = .1, label = &quot;observed effect&quot;, color = &quot;#C0392B&quot;, hjust = 0, size = 3.5) +
+  scale_y_continuous(labels = percent) + scale_color_manual(values = c(&quot;#9DB4CE&quot;, &quot;#6A93BD&quot;, &quot;#2F5D8A&quot;, &quot;#10253B&quot;)) +
+  labs(title = &quot;Power vs effect size, by players per group&quot;, x = &quot;true change in day-7 retention (pp)&quot;, y = &quot;power&quot;, color = &quot;players / group&quot;) + theme_ab()
+</code></pre>
+<p><img src="data:image/png;base64,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" alt="plot of chunk power-curves" /></p>
+<h1>2. Does our testing procedure behave? (A/A simulation &amp; the cost of peeking)</h1>
+<p>An <strong>A/A test</strong> compares two <em>identical</em> groups. A sound procedure should flag a &quot;significant&quot; difference only ~5 % of the time.</p>
+<pre><code class="language-r">set.seed(2024)
+sim_aa &lt;- function(n, p, looks = 1, B = 2000) {
+  inc &lt;- floor(n / looks); sig &lt;- logical(B)
+  for (b in seq_len(B)) {
+    x1 &lt;- x2 &lt;- 0; hit &lt;- FALSE
+    for (k in seq_len(looks)) {
+      x1 &lt;- x1 + rbinom(1, inc, p); x2 &lt;- x2 + rbinom(1, inc, p); nk &lt;- k * inc
+      pp &lt;- (x1 + x2) / (2 * nk); z &lt;- (x2 / nk - x1 / nk) / sqrt(pp * (1 - pp) * 2 / nk)
+      if (abs(z) &gt; qnorm(.975)) { hit &lt;- TRUE; break }
+    }
+    sig[b] &lt;- hit
+  }
+  mean(sig)
+}
+fp &lt;- tibble(procedure = c(&quot;One analysis at the planned end (what we did)&quot;, &quot;Peek 5 times, stop at first p &lt; 0.05&quot;, &quot;Peek 10 times, stop at first p &lt; 0.05&quot;, &quot;Peek 30 times, stop at first p &lt; 0.05&quot;),
+             looks = c(1, 5, 10, 30)) |&gt; rowwise() |&gt; mutate(false_positive_rate = sim_aa(n_per, p0, looks)) |&gt; ungroup()
+fp |&gt; mutate(false_positive_rate = percent(false_positive_rate, .1)) |&gt; select(procedure, `false-positive rate (nominal 5%)` = false_positive_rate) |&gt; kable()
+</code></pre>
+<table>
+<thead>
+<tr>
+<th align="left">procedure</th>
+<th align="left">false-positive rate (nominal 5%)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="left">One analysis at the planned end (what we did)</td>
+<td align="left">4.9%</td>
+</tr>
+<tr>
+<td align="left">Peek 5 times, stop at first p &lt; 0.05</td>
+<td align="left">13.6%</td>
+</tr>
+<tr>
+<td align="left">Peek 10 times, stop at first p &lt; 0.05</td>
+<td align="left">20.0%</td>
+</tr>
+<tr>
+<td align="left">Peek 30 times, stop at first p &lt; 0.05</td>
+<td align="left">28.0%</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Take-away.</strong> A single pre-planned analysis keeps the error rate at 5 %. Repeatedly checking the dashboard and stopping when a result turns significant
+multiplies false alarms several-fold — so the plan (sample size, metric, stopping rule) must be fixed in advance; sequential methods are needed if early stopping is wanted.</p>
+<h1>3. What is the business impact?</h1>
+<pre><code class="language-r">per &lt;- 100000
+tibble(scenario = c(&quot;Keep gate at 30 (control)&quot;, &quot;Move gate to 40 (treatment)&quot;, &quot;Difference&quot;),
+       `retained at day 7 per 100,000 new installs` = c(round(per * res7$control), round(per * res7$treatment), round(per * res7$diff_pp / 100)),
+       `95% CI of difference` = c(&quot;&quot;, &quot;&quot;, sprintf(&quot;[%s, %s]&quot;, format(round(per * res7$ci_low_pp / 100), big.mark = &quot;,&quot;), format(round(per * res7$ci_high_pp / 100), big.mark = &quot;,&quot;)))) |&gt;
+  kable(format.args = list(big.mark = &quot;,&quot;))
+</code></pre>
+<table>
+<thead>
+<tr>
+<th align="left">scenario</th>
+<th align="right">retained at day 7 per 100,000 new installs</th>
+<th align="left">95% CI of difference</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="left">Keep gate at 30 (control)</td>
+<td align="right">19,020</td>
+<td align="left"></td>
+</tr>
+<tr>
+<td align="left">Move gate to 40 (treatment)</td>
+<td align="right">18,200</td>
+<td align="left"></td>
+</tr>
+<tr>
+<td align="left">Difference</td>
+<td align="right">-820</td>
+<td align="left">[-1,328, -312]</td>
+</tr>
+</tbody>
+</table>
+<p>Shipping the later gate would cost roughly <strong>820 retained players per 100,000 installs</strong>
+(4.3% relative). The financial size depends on what a day-7-retained player is worth — <strong>not in this dataset</strong>, so the table
+below is <em>illustrative only</em>; replace the value with the real figure from finance:</p>
+<pre><code class="language-r">tibble(`value of a day-7-retained player (assumption)` = c(0.25, 0.50, 1.00)) |&gt;
+  mutate(`revenue impact per 1M installs` = sprintf(&quot;-$%s&quot;, format(round(abs(res7$diff_pp / 100) * 1e6 * `value of a day-7-retained player (assumption)`), big.mark = &quot;,&quot;))) |&gt; kable()
+</code></pre>
+<table>
+<thead>
+<tr>
+<th align="right">value of a day-7-retained player (assumption)</th>
+<th align="left">revenue impact per 1M installs</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="right">0.25</td>
+<td align="left">-$2,050</td>
+</tr>
+<tr>
+<td align="right">0.50</td>
+<td align="left">-$4,101</td>
+</tr>
+<tr>
+<td align="right">1.00</td>
+<td align="left">-$8,201</td>
+</tr>
+</tbody>
+</table>
+<h1>4. Decision</h1>
+<table>
+<thead>
+<tr>
+<th>Criterion</th>
+<th>Result</th>
+<th>Verdict</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Primary metric: day-7 retention</td>
+<td>-0.82 pp (95% CI [-1.33, -0.31]), p = 0.0016</td>
+<td><strong>significant harm</strong></td>
+</tr>
+<tr>
+<td>Direction of the whole confidence interval</td>
+<td>entirely below zero</td>
+<td>gate_40 hurts</td>
+</tr>
+<tr>
+<td>Secondary: day-1 retention</td>
+<td>-0.59 pp, p = 0.0744</td>
+<td>not a reason to ship</td>
+</tr>
+<tr>
+<td>Guardrail: rounds played</td>
+<td>no reliable difference</td>
+<td>neutral</td>
+</tr>
+<tr>
+<td>Bayesian: probability gate_40 is better</td>
+<td>0.1%</td>
+<td>very unlikely</td>
+</tr>
+<tr>
+<td>Robust to multiple testing / permutation / balanced resampling?</td>
+<td>Holm-adjusted p stays below 5%; permutation p = 0.0015; 100.0% of balanced resamples significant</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>Experiment validity</td>
+<td>sample-ratio mismatch (p = 0.0086): flagged, did not change the conclusion</td>
+<td>caveat to investigate</td>
+</tr>
+</tbody>
+</table>
+<h2>Recommendation</h2>
+<blockquote>
+<p><strong>Do not ship gate_40. Keep the first gate at level 30.</strong></p>
+<p>Moving the gate to level 40 lowers day-7 retention from 19.0% to 18.2%, a relative drop of about
+4.3 %. The whole confidence interval is below zero, the Bayesian probability that the new gate is better is only
+0.1%, and nothing in the secondary or guardrail metrics offsets the loss.</p>
+</blockquote>
+<p><em>(Numbers in this paragraph are filled in from the analysis.)</em></p>
+<h2>What would change this decision</h2>
+<ul>
+<li><strong>Monetisation data.</strong> If gate_40 raised revenue per player enough to outweigh the retention loss (it might — gates exist to monetise), the answer changes. This
+dataset has no revenue, so the recommendation is <em>on retention grounds only</em>.</li>
+<li><strong>Longer-term retention</strong> (day 14 / 30): a short-term dip might reverse. A follow-up with longer observation would show it.</li>
+<li><strong>Sample-ratio mismatch:</strong> engineering should find out why the arms are not 50/50 before the result is treated as final.</li>
+</ul>
+<h2>Suggested next experiments</h2>
+<ol>
+<li>Gate earlier (e.g. level 20) versus level 30 — the data suggest &quot;later is worse&quot;, so test the other direction.</li>
+<li>Add revenue and ad-impression metrics to the experiment readout.</li>
+<li>Pre-register a 14-day retention check and a fixed sample size (§1) before launch; use sequential testing if early stopping is needed.</li>
+</ol>
+</body></html>
