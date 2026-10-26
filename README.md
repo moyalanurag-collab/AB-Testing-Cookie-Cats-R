@@ -1,6 +1,6 @@
 # A/B Testing & Experimentation Analysis: Cookie Cats (R)
 
-**Author: Anurag Moyal** · Data Analytics Portfolio Project
+Author: Anurag Moyal
 
 A complete, statistically rigorous analysis of a real mobile-game experiment: **does moving the first gate from level 30 to level 40
 keep more players coming back?** The project covers the whole experimentation workflow: data validation, hypothesis tests with confidence
@@ -54,10 +54,6 @@ simulation checks that the testing procedure has a 5 % false-positive rate (and 
 * The segment analysis is exploratory (engagement is measured after randomisation).
 * The sample-ratio mismatch cannot be explained from the data alone.
 * The dollar-value table in report 2 is illustrative (assumed value per retained player).
-
-## CV bullets (edit to taste)
-* *Analysed a 90k-player mobile-game A/B test in R: validated randomisation (found a sample-ratio mismatch), ran hypothesis tests with confidence intervals, Bayesian and permutation checks, and Holm correction; showed the later gate cut day-7 retention by 0.82 pp (p = 0.0016) and recommended not shipping.*
-* *Built power and sample-size analyses (MDE, power curves) and an A/A simulation showing that peeking at results raises false positives from 5 % to 14–28 %.*
 
 ## Data source
 Cookie Cats dataset, originally on Kaggle ("Mobile Games A/B Testing - Cookie Cats"); this copy comes from a public GitHub repository
